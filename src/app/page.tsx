@@ -1,103 +1,244 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Trash2, ExternalLink, Copy, Link, Plus } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+
+type Item = { slug: string; url: string; createdAt: string; short: string };
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [url, setUrl] = useState("");
+  const [custom, setCustom] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "loading">("success");
+  const [list, setList] = useState<Item[]>([]);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Load list dari cookie
+  useEffect(() => {
+    const saved = Cookies.get("shortlinks");
+    if (saved) {
+      try {
+        setList(JSON.parse(saved));
+      } catch {
+        setList([]);
+      }
+    }
+  }, []);
+
+  // Simpan list ke cookie
+  useEffect(() => {
+    Cookies.set("shortlinks", JSON.stringify(list), { expires: 365 });
+  }, [list]);
+
+  async function handleSubmit(e: any) {
+    e.preventDefault();
+    setMessage("Membuat short URL...");
+    setMessageType("loading");
+    
+    try {
+      const res = await fetch("/api/create", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url, custom })
+      });
+      const j = await res.json();
+      
+      if (!res.ok) {
+        setMessage(j.error || "Terjadi kesalahan");
+        setMessageType("error");
+        return;
+      }
+      
+      setMessage(`Short URL berhasil dibuat: ${j.short}`);
+      setMessageType("success");
+
+      setList(prev => [
+        { slug: j.slug, url: j.url, createdAt: j.createdAt, short: j.short },
+        ...prev
+      ]);
+
+      setUrl("");
+      setCustom("");
+    } catch {
+      setMessage("Kesalahan jaringan, coba lagi");
+      setMessageType("error");
+    }
+  }
+
+  function handleDelete(slug: string) {
+    setList(prev => prev.filter(it => it.slug !== slug));
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    setMessage("Link telah disalin!");
+    setMessageType("success");
+    setTimeout(() => setMessage(""), 3000);
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="container mx-auto max-w-4xl px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Link className="h-8 w-8 text-blue-400" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              ShortURL
+            </h1>
+          </div>
+          <p className="text-gray-400 text-lg">
+            Buat short URL dengan mudah dan simpan di cookie browser
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Create Form */}
+        <Card className="bg-gray-900 border-gray-800 mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Plus className="h-5 w-5" />
+              Buat Short URL Baru
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Masukkan URL yang ingin dipendekkan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="url" className="text-white">URL Asli</Label>
+                <Input
+                  id="url"
+                  placeholder="https://contoh.com/path/yang/panjang"
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="custom" className="text-white">Custom Alias (Opsional)</Label>
+                <Input
+                  id="custom"
+                  placeholder="my-custom-link"
+                  value={custom}
+                  onChange={e => setCustom(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:border-blue-500"
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={messageType === "loading"}
+              >
+                {messageType === "loading" ? "Membuat..." : "Buat Short URL"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Message Alert */}
+        {message && (
+          <Alert className={`mb-6 ${
+            messageType === "success" ? "bg-green-900/20 border-green-800 text-green-400" :
+            messageType === "error" ? "bg-red-900/20 border-red-800 text-red-400" :
+            "bg-blue-900/20 border-blue-800 text-blue-400"
+          }`}>
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Links List */}
+        <Card className="bg-gray-900 border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-white">
+              Link Kamu ({list.length})
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Tersimpan di cookie browser
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {list.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Link className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Belum ada link yang dibuat</p>
+                <p className="text-sm">Buat link pertama Anda di atas</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {list.map((item, index) => (
+                  <div key={item.slug}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-gray-800/50 border border-gray-700">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <a 
+                            href={item.short} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="text-blue-400 hover:text-blue-300 font-medium truncate flex items-center gap-1"
+                          >
+                            {item.short}
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          </a>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(item.short)}
+                            className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        
+                        <p className="text-gray-300 text-sm truncate mb-2">
+                          → {item.url}
+                        </p>
+                        
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="bg-gray-700 text-gray-300 text-xs">
+                            {new Date(item.createdAt).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(item.slug)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 self-start sm:self-center"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    {index < list.length - 1 && <Separator className="bg-gray-800" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-gray-500 text-sm">
+          <p>Data disimpan secara lokal di browser Anda</p>
+        </div>
+      </div>
     </div>
   );
 }
